@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\API;
 
 use Exception;
-use Carbon\Carbon;
 use App\Models\Tax;
 use App\Models\Income;
 use App\Models\Saving;
@@ -12,25 +11,26 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use App\Http\Controllers\Controller;
 
-class BudgetController extends Controller
+class DefaultContentController extends Controller
 {
 
-    public function getIncomes(Request $request)
+
+    public function guestGetIncomes(Request $request)
     {
         return $this->getEntityTotals(Income::class, $request, 'incomes');
     }
 
-    public function getExpenses(Request $request)
+    public function guestGetExpenses(Request $request)
     {
         return $this->getEntityTotalsForExpense(Expense::class, $request, 'expenses');
     }
 
-    public function getSavings(Request $request)
+    public function guestGetSavings(Request $request)
     {
         return $this->getEntityTotals(Saving::class, $request, 'savings');
     }
 
-    public function getTaxes(Request $request)
+    public function guestGetTaxes(Request $request)
     {
         return $this->getEntityTotals(Tax::class, $request, 'taxes');
     }
@@ -719,8 +719,7 @@ class BudgetController extends Controller
             ];
 
             // Fetch records from the database
-            $records = $model::where('user_id', auth()->user()->id)
-                ->where('year', $validated['year'])
+            $records = $model::where('year', $validated['year'])
                 // ->where('month', $validated['month'])
                 ->select('type', 'name', DB::raw('round(monthly_amount) as monthly_amount'), DB::raw('round(annual_amount) as annual_amount'), 'percentage_total')
                 ->get()
@@ -761,7 +760,6 @@ class BudgetController extends Controller
         try {
             $validated = $request->validate([
                 'year' => 'required|integer',
-                // 'month' => 'required|string|size:3|in:jan,feb,mar,apr,may,jun,jul,aug,sep,oct,nov,dec',
             ]);
 
             $defaultItems = match ($model) {
@@ -882,8 +880,7 @@ class BudgetController extends Controller
             $totals = $this->getTotalsByModel($model, $validated);
 
             // fetch records
-            $records = $model::where('user_id', auth()->user()->id)
-                ->where('year', $validated['year'])
+            $records = $model::where('year', $validated['year'])
                 // ->where('month', $validated['month'])
                 ->select('type', DB::raw('monthly_amount as monthly_amount'), DB::raw('round(annual_amount) as annual_amount'), 'percentage_total')
                 ->get();
@@ -912,8 +909,7 @@ class BudgetController extends Controller
     private function getTotalsByModel($model, $validated)
     {
         // Fetch total values from the database
-        $data = $model::where('user_id', auth()->id())
-            ->where('year', $validated['year'])
+        $data = $model::where('year', $validated['year'])
             ->selectRaw('
             COALESCE(ROUND(SUM(monthly_amount)), 0) as total_monthly, 
             COALESCE(ROUND(SUM(annual_amount)), 0) as total_annual
@@ -942,7 +938,6 @@ class BudgetController extends Controller
     private function getTotalsByType($model, $validated)
     {
         $data = $model::selectRaw('type, round(SUM(monthly_amount)) as total_monthly, round(SUM(annual_amount)) as total_annual, round(SUM(percentage_total)) as percentage_of_total')
-            ->where('user_id', auth()->id())
             ->where('year', $validated['year'])
             // ->where('month', $validated['month'])
             ->groupBy('type')
@@ -978,22 +973,22 @@ class BudgetController extends Controller
         // return $data;
     }
 
-    public function saveIncome(Request $request)
+    public function guestSaveIncome(Request $request)
     {
         return $this->saveRecord(Income::class, $request);
     }
 
-    public function saveExpense(Request $request)
+    public function guestSaveExpense(Request $request)
     {
         return $this->saveRecord(Expense::class, $request, ['name' => 'required|string']);
     }
 
-    public function saveSaving(Request $request)
+    public function guestSaveSaving(Request $request)
     {
         return $this->saveRecord(Saving::class, $request);
     }
 
-    public function saveTax(Request $request)
+    public function guestSaveTax(Request $request)
     {
         return $this->saveRecord(Tax::class, $request);
     }

@@ -5,14 +5,11 @@ namespace App\Http\Controllers\API;
 use Exception;
 use App\Models\NetWorth;
 use Illuminate\Http\Request;
-use Illuminate\Http\JsonResponse;
-use Illuminate\Support\Facades\DB;
 use App\Http\Controllers\Controller;
 
-class NetWorthController extends Controller
+class DefultNetWorthController extends Controller
 {
-
-    public function getNetWorth(Request $request): JsonResponse
+    public function GuestGetNetWorth(Request $request)
     {
         try {
             $validated = $request->validate([
@@ -143,7 +140,6 @@ class NetWorthController extends Controller
             ], 500);
         }
     }
-
     protected function calculateTotals($records): array
     {
         $categories = [
@@ -171,173 +167,5 @@ class NetWorthController extends Controller
                 'total'
             ])->sum(fn($month) => $record->$month);
         });
-    }
-
-
-
-
-
-    public function storeNetWorth(Request $request)
-    {
-        try {
-            // Validate request
-            $request->validate([
-                'type' => 'required|string|in:liquid assets,taxable financial assets,tax-deferred assets,tax-free assets,other assets,liability,out of estate',
-                'name' => 'required|string|max:255',
-                'institution' => 'nullable|string',
-                'notes' => 'nullable',
-                'year' => 'required|numeric',
-                'total' => 'required|numeric',
-
-            ]);
-
-            // Custom validation for unique name and institution combination
-            $duplicateRecord = NetWorth::where([
-                ['user_id', auth()->id()],
-                ['year', $request->year],
-                ['type', $request->type],
-                ['name', $request->name],
-                ['institution', $request->institution],
-            ])->exists();
-
-            if ($duplicateRecord) {
-                return response()->json([
-                    'status' => false,
-                    'message' => 'Duplicate record found',
-                    'code' => 422,
-                    'data' => [],
-                ], 422);
-            }
-
-            // Create net worth record
-            $netWorth = NetWorth::create([
-                'user_id' => auth()->user()->id,
-                'type' => $request->input('type'),
-                'name' => $request->input('name'),
-                'institution' => $request->input('institution'),
-                'year' => $request->input('year'),
-            ]);
-
-
-
-            $netWorth->total = $request->input('total');
-
-            $netWorth->notes = $request->input('notes');
-
-            $netWorth->save();
-
-            return response()->json([
-                'status' => true,
-                'message' => 'Net worth created successfully',
-                'code' => 200,
-                'data' => $netWorth,
-            ], 200);
-        } catch (Exception $e) {
-            return response()->json([
-                'status' => false,
-                'message' => $e->getMessage(),
-                'code' => 500,
-                'data' => [],
-            ], 500);
-        }
-    }
-
-
-    public function updateNetWorth(Request $request, $id)
-    {
-        try {
-            // Validate request
-            $request->validate([
-                'type' => 'string|in:liquid assets,taxable financial assets,tax-deferred assets,tax-free assets,other assets,liability',
-                'name' => 'string|max:255',
-                'institution' => 'string',
-                'notes' => 'nullable',
-                'year' => 'numeric',
-                'total' => 'nullable|numeric',
-
-            ]);
-
-            // Update net worth record
-            $netWorth = NetWorth::where('user_id', auth()->user()->id)->findOrFail($id);
-
-            $netWorth->type = $request->input('type');
-            $netWorth->name = $request->input('name');
-            $netWorth->institution = $request->input('institution');
-            $netWorth->total = $request->input('total');
-            $netWorth->notes = $request->input('notes');
-            $netWorth->year = $request->input('year');
-
-            $netWorth->save();
-
-            return response()->json([
-                'status' => true,
-                'message' => 'Net worth updated successfully',
-                'code' => 200,
-                'data' => $netWorth,
-            ], 200);
-        } catch (Exception $e) {
-            return response()->json([
-                'status' => false,
-                'message' => $e->getMessage(),
-                'code' => 500,
-                'data' => [],
-            ], 500);
-        }
-    }
-
-    public function destroyNetWorth($id)
-    {
-        try {
-            $netWorth = NetWorth::where('user_id', auth()->user()->id)->findOrFail($id);
-            $netWorth->delete();
-
-            return response()->json([
-                'status' => true,
-                'message' => 'Net worth deleted successfully',
-                'code' => 200,
-                'data' => [],
-            ], 200);
-        } catch (Exception $e) {
-            return response()->json([
-                'status' => false,
-                'message' => $e->getMessage(),
-                'code' => 500,
-                'data' => [],
-            ], 500);
-        }
-    }
-
-    public function bulkDeleteNetWorth(Request $request)
-    {
-        $request->validate([
-            'ids' => 'required|array',
-            'ids.*' => 'integer|exists:net_worths,id',
-        ]);
-
-        DB::beginTransaction();
-
-        try {
-            $userId = auth()->user()->id;
-            $deletedCount = NetWorth::where('user_id', $userId)
-                ->whereIn('id', $request->ids)
-                ->delete();
-
-            DB::commit();
-
-            return response()->json([
-                'status' => true,
-                'message' => "{$deletedCount} net worth record(s) deleted successfully",
-                'code' => 200,
-                'data' => [],
-            ], 200);
-        } catch (Exception $e) {
-            DB::rollBack();
-            return response()->json([
-                'status' => false,
-                'message' => $e->getMessage(),
-                'code' => 500,
-                'data' => [],
-            ], 500);
-        }
     }
 }

@@ -9,6 +9,8 @@ use App\Http\Controllers\API\Auth\LoginController;
 use App\Http\Controllers\API\Auth\LogoutController;
 use App\Http\Controllers\API\TransactionController;
 use App\Http\Controllers\API\Auth\RegisterController;
+use App\Http\Controllers\API\DefaultContentController;
+use App\Http\Controllers\API\DefultNetWorthController;
 use App\Http\Controllers\API\Auth\SocialLoginController;
 use App\Http\Controllers\API\Auth\ResetPasswordController;
 
@@ -29,6 +31,18 @@ Route::group(['middleware' => 'guest:api'], function () {
     Route::post('/forget-password', [ResetPasswordController::class, 'forgotPassword']);
     Route::post('/verify-otp', [ResetPasswordController::class, 'VerifyOTP']);
     Route::post('/reset-password', [ResetPasswordController::class, 'ResetPassword']);
+
+    // Default  BudgetController routes
+    Route::controller(DefaultContentController::class)->group(function () {
+        Route::get('/guest/get-incomes', 'guestGetIncomes');
+        Route::get('/guest/get-expenses', 'guestGetExpenses');
+        Route::get('/guest/get-savings', 'guestGetSavings');
+        Route::get('/guest/get-taxes', 'guestGetTaxes');
+    });
+    //NetWorthController routes
+    Route::controller(DefultNetWorthController::class)->group(function () {
+        Route::get('/guest/net-worth', 'GuestGetNetWorth');
+    });
 });
 
 // Authenticated routes
@@ -63,6 +77,4 @@ Route::group(['middleware' => 'auth:api'], function () {
         Route::delete('/net-worth/{id}', 'destroyNetWorth');
         Route::delete('/bulk-delete-net-worth', 'bulkDeleteNetWorth');
     });
-
 });
-
