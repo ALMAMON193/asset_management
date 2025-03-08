@@ -2,7 +2,7 @@ name: Deploy project to our server
 on:
   push:
     branches:
-      - dev
+      - mamon
 jobs:
   FTP-Deploy-Action:
     name: FTP-Deploy-Action
@@ -15,11 +15,11 @@ jobs:
         uses: SamKirkland/FTP-Deploy-Action@4.3.0
         with:
 
-          server: ftp.softvencefsd.xyz
-          password: '].BL2y-zv30['
-          username: 'scottg@softvencefsd.xyz'
+          server: ftp.zjm.xte.mybluehost.me
+          password: 3{b7.g-?du(o
+          username: admin@admin.zjm.xte.mybluehost.me 
 
-    
+
 
 
 
