@@ -35,6 +35,7 @@ class DefaultContentController extends Controller
         return $this->getEntityTotals(Tax::class, $request, 'taxes');
     }
 
+
     private function getEntityTotalsForExpense($model, $request, $entityName)
     {
 
@@ -880,20 +881,16 @@ class DefaultContentController extends Controller
             $totals = $this->getTotalsByModel($model, $validated);
 
             // fetch records
-            $records = $model::where('year', $validated['year'])
-                // ->where('month', $validated['month'])
-                ->select('type', DB::raw('monthly_amount as monthly_amount'), DB::raw('round(annual_amount) as annual_amount'), 'percentage_total')
-                ->get();
+            $records = '';
 
             // Merge defaults with existing records
             $mergedRecords = collect($defaultItems)->map(function ($defaultItem) use ($records) {
-                $existingRecord = collect($records)->firstWhere('type', $defaultItem['type']);
-                return $existingRecord ?? $defaultItem;
+                return $defaultItem;
             });
 
             return response()->json([
                 'status' => true,
-                'message' => "Successfully fetched $entityName data",
+                'message' => "Successfully fetched Income data",
                 'code' => 200,
                 'totals' => $totals,
                 'records' => $mergedRecords,
@@ -917,11 +914,11 @@ class DefaultContentController extends Controller
             ->first();
 
         // Ensure default values to avoid null issues
-        $totalMonthly = $data->total_monthly ?? 0;
-        $totalAnnual = $data->total_annual ?? 0;
+        $totalMonthly =  0;
+        $totalAnnual =  0;
 
         // Fix percentage calculation
-        $percentageTotal = ($totalAnnual > 0) ? 100 : 0;
+        $percentageTotal =  0; // Since this is a total model sum
 
         return [
             'year' => $validated['year'],
@@ -937,12 +934,7 @@ class DefaultContentController extends Controller
      */
     private function getTotalsByType($model, $validated)
     {
-        $data = $model::selectRaw('type, round(SUM(monthly_amount)) as total_monthly, round(SUM(annual_amount)) as total_annual, round(SUM(percentage_total)) as percentage_of_total')
-            ->where('year', $validated['year'])
-            // ->where('month', $validated['month'])
-            ->groupBy('type')
-            ->get()
-            ->keyBy('type');
+        $data = '';
 
         $defaultTypes = [
             'Home',
@@ -962,14 +954,119 @@ class DefaultContentController extends Controller
         foreach ($defaultTypes as $type) {
             $result[] = [
                 'type' => $type,
-                'total_monthly' => $data[$type]['total_monthly'] ?? 0,
-                'total_annual' => $data[$type]['total_annual'] ?? 0,
-                'percentage_of_total' => $data[$type]['percentage_of_total'] ?? 0,
+                'total_monthly' =>  0,
+                'total_annual' =>  0,
+                'percentage_of_total' =>  0,
             ];
         }
 
         return $result;
 
         // return $data;
+    }
+
+    public function guestSaveIncome(Request $request)
+    {
+        return $this->saveRecord(Income::class, $request);
+    }
+
+    public function guestSaveExpense(Request $request)
+    {
+        return $this->saveRecord(Expense::class, $request, ['name' => 'required|string']);
+    }
+
+    public function guestSaveSaving(Request $request)
+    {
+        return $this->saveRecord(Saving::class, $request);
+    }
+
+    public function guestSaveTax(Request $request)
+    {
+        return $this->saveRecord(Tax::class, $request);
+    }
+
+    /**
+     * Generic method to save a record.
+     */
+    private function saveRecord($model, Request $request, array $extraRules = [])
+    {
+        try {
+            if ($request->monthly_amount && $request->annual_amount) {
+                return response()->json(['error' => 'You can only enter either monthly or annual amount'], 400);
+            }
+
+            $rules = array_merge([
+                'type' => 'required|string',
+                'notes' => 'nullable|string',
+                'monthly_amount' => 'nullable|numeric',
+                'annual_amount' => 'nullable|numeric',
+                'year' => 'required|integer',
+
+            ], $extraRules);
+
+            $validated = $request->validate($rules);
+
+            DB::beginTransaction();
+
+            $record = $model::updateOrCreate(
+                [
+                    'user_id' => auth()->id(),
+                    'year' => $validated['year'],
+                    // 'month' => $validated['month'],
+                    'type' => $validated['type'],
+                ] + (isset($validated['name']) ? ['name' => $validated['name']] : []),
+                array_merge($validated, $this->calculateAmounts($validated))
+            );
+
+            $this->updatePercentages($model, $record->user_id);
+
+            // Fetch the updated record from the database
+            $freshRecord = $model::find($record->id);
+
+            DB::commit();
+
+            return response()->json([
+
+                'success' => true,
+                'message' => 'Record saved successfully',
+                'code' => 200,
+                'record' => $freshRecord
+            ]);
+        } catch (Exception $e) {
+            DB::rollBack();
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * Automatically calculate annual or monthly amounts.
+     */
+    private function calculateAmounts($data)
+    {
+        $calculated = [
+            'monthly_amount' => isset($data['monthly_amount']) ? number_format($data['monthly_amount'], 2, '.', '') : 0,
+            'annual_amount' => isset($data['annual_amount']) ? number_format($data['annual_amount'], 2, '.', '') : 0
+        ];
+
+        if ($calculated['monthly_amount'] == 0 && $calculated['annual_amount'] > 0) {
+            $calculated['monthly_amount'] = number_format($calculated['annual_amount'] / 12, 2, '.', '');
+        } elseif ($calculated['annual_amount'] == 0 && $calculated['monthly_amount'] > 0) {
+            $calculated['annual_amount'] = number_format($calculated['monthly_amount'] * 12, 2, '.', '');
+        }
+
+        return $calculated;
+    }
+
+
+    /**
+     * Update percentages.
+     */
+    private function updatePercentages($model, $userId)
+    {
+        $totals = $model::where('user_id', $userId)->sum('annual_amount');
+
+        $model::where('user_id', $userId)->each(function ($record) use ($totals) {
+            $record->update(['percentage_total' => $totals > 0 ? ($record->annual_amount / $totals) * 100 : 0]);
+        });
     }
 }
