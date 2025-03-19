@@ -43,6 +43,10 @@ Route::group(['middleware' => 'guest:api'], function () {
     Route::controller(DefultNetWorthController::class)->group(function () {
         Route::get('/guest/net-worth', 'GuestGetNetWorth');
     });
+    Route::controller(\App\Http\Controllers\API\DefaultBlogController::class)->group(function () {
+        Route::get('default/blogs', 'defaultGetActiveBlogs');
+        Route::get('default/blogs/{slug}', 'defaultGetBlogBySlug');
+    });
 });
 
 // Authenticated routes
@@ -67,7 +71,6 @@ Route::group(['middleware' => 'auth:api'], function () {
         Route::get('/blogs', 'getActiveBlogs');
         Route::get('/blogs/{slug}', 'getBlogBySlug');
     });
-
 
     //NetWorthController routes
     Route::controller(NetWorthController::class)->group(function () {
